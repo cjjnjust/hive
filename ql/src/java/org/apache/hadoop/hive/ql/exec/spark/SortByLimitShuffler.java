@@ -19,26 +19,41 @@ package org.apache.hadoop.hive.ql.exec.spark;
 
 import org.apache.hadoop.hive.ql.io.HiveKey;
 import org.apache.hadoop.io.BytesWritable;
+import org.apache.spark.HashPartitioner;
+import org.apache.spark.Partitioner;
+import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.JavaSparkContext$;
+import org.apache.tools.ant.taskdefs.Java;
+import scala.Tuple2;
 
 /**
- * Implement Order By Limit in SortByLimitShuffle
+ * Implement Order By Limit in SortByLimitShuffler
  */
-public class SortByLimitShuffle extends SortByShuffler {
-  /**
-   * @param sparkPlan
-   */
-  public SortByLimitShuffle(SparkPlan sparkPlan) {
-    super(true, sparkPlan);
-  }
+public class SortByLimitShuffler implements SparkShuffler<BytesWritable> {
 
+  private final int limit;
+  /**
+   * @param limit The limit of result.
+   */
+  public SortByLimitShuffler(int limit) {
+    this.limit = limit;
+  }
 
   @Override
   public JavaPairRDD<HiveKey, BytesWritable> shuffle(
       JavaPairRDD<HiveKey, BytesWritable> input, int numPartitions) {
-    JavaPairRDD<HiveKey, BytesWritable> rdd = null;
-    //TODO implement order by Limit M
-    // top(M).sortByKey(1).take(M)
+    JavaPairRDD<HiveKey, BytesWritable> rdd = input.sortByKey();
+    
+    rdd.zipWithIndex().filter((Tuple2<Tuple2<HiveKey, BytesWritable>, Long> v) -> v._2 < limit);
+    rdd.keys();
+
     return rdd;
+  }
+
+  @Override
+  public String getName() {
+    return "SortByLimit";
   }
 }
