@@ -88,6 +88,11 @@ public class ParquetRecordReaderWrapper extends ParquetRecordReaderBase
     // Set the TimeZone conversion in case the file has timestamp columns.
     setTimeZoneConversion(conf, ((FileSplit)oldSplit).getPath());
 
+    if (jobConf.get(ParquetInputFormat.FILTER_PREDICATE) != null) {
+      conf.set(ParquetInputFormat.FILTER_PREDICATE,
+        jobConf.get(ParquetInputFormat.FILTER_PREDICATE));
+    }
+
     final TaskAttemptContext taskContext = ContextUtil.newTaskAttemptContext(conf, taskAttemptID);
     if (split != null) {
       try {

@@ -27,7 +27,6 @@ import org.apache.hadoop.hive.serde2.SerDeStats;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.filter2.compat.FilterCompat;
-import org.apache.parquet.filter2.compat.RowGroupFilter;
 import org.apache.parquet.filter2.predicate.FilterPredicate;
 import org.apache.parquet.format.converter.ParquetMetadataConverter;
 import org.apache.parquet.hadoop.ParquetFileReader;
@@ -46,7 +45,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.TimeZone;
 
 public class ParquetRecordReaderBase {
   public static final Logger LOG = LoggerFactory.getLogger(ParquetRecordReaderBase.class);
@@ -115,31 +113,15 @@ public class ParquetRecordReaderBase {
         return null;
       }
 
-      FilterCompat.Filter filter = setFilter(jobConf, fileMetaData.getSchema());
-      if (filter != null) {
-        filtedBlocks = RowGroupFilter.filterRowGroups(filter, splitGroup, fileMetaData.getSchema());
-        if (filtedBlocks.isEmpty()) {
-          LOG.debug("All row groups are dropped due to filter predicates");
-          return null;
-        }
-
-        long droppedBlocks = splitGroup.size() - filtedBlocks.size();
-        if (droppedBlocks > 0) {
-          LOG.debug("Dropping " + droppedBlocks + " row groups that do not pass filter predicate");
-        }
-      } else {
-        filtedBlocks = splitGroup;
-      }
+      setFilter(jobConf, fileMetaData.getSchema());
 
       split = new ParquetInputSplit(finalPath,
         splitStart,
+        splitStart + splitLength,
         splitLength,
         oldSplit.getLocations(),
-        filtedBlocks,
-        readContext.getRequestedSchema().toString(),
-        fileMetaData.getSchema().toString(),
-        fileMetaData.getKeyValueMetaData(),
-        readContext.getReadSupportMetadata());
+        null);
+
       return split;
     } else {
       throw new IllegalArgumentException("Unknown split type: " + oldSplit);
@@ -207,9 +189,6 @@ public class ParquetRecordReaderBase {
     }
   }
 
-  public List<BlockMetaData> getFiltedBlocks() {
-    return filtedBlocks;
-  }
 
   public SerDeStats getStats() {
     return serDeStats;
